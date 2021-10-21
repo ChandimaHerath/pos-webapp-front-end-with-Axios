@@ -1,9 +1,7 @@
 import $ from 'jquery';
-import { OrderTM } from "./tm/orderTM";
 import { Customer } from "./dto/customer";
 import { Item } from "./dto/item";
 import { Order, OrderDetails } from "./dto/order";
-import { Pagination } from './dto/pagination';
 
 const BASE_API = 'http://localhost:8080/pos';
 const ORDERS_SERVICE_API = `${BASE_API}/orders`;
@@ -12,7 +10,7 @@ const ITEM_SERVICE_API = `${BASE_API}/items`;
 const PAGE_SIZE = 6;
 const PAGINATION = new Pagination($('.pagination'), PAGE_SIZE, 0, loadAllOrders);
 
-let orders: Array<OrderTM> = [];
+let orders: Array<OrderM> = [];
 let customers: Array<Customer> = [];
 let items: Array<Item> = [];
 let totalOrders = 0;
@@ -163,7 +161,6 @@ $('#btn-save').on('click', (eventData) => {
         return;
     }
 
-    saveOrder(new OrderTM(code, description, +qty, +price, (+qty*+price)));
 
     let total =0; /* TODO: exists order table update, count qty with table */
     for (const order of orders) {
@@ -173,7 +170,7 @@ $('#btn-save').on('click', (eventData) => {
     $('#order-total').text(total);
 });
 
-function saveOrder(order: OrderTM): void {
+function saveOrder(order: Order): void {
     totalOrders++;
     PAGINATION.pageCount = Math.ceil(totalOrders / PAGE_SIZE);
 
