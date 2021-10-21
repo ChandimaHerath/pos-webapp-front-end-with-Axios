@@ -1,13 +1,18 @@
 import $ from 'jquery';
+import { OrderTM } from "./tm/orderTM";
 import { Customer } from "./dto/customer";
 import { Item } from "./dto/item";
 import { Order, OrderDetails } from "./dto/order";
+import { Pagination } from './dto/pagination';
+
 const BASE_API = 'http://localhost:8080/pos';
 const ORDERS_SERVICE_API = `${BASE_API}/orders`;
 const CUSTOMER_SERVICE_API = `${BASE_API}/customers`;
 const ITEM_SERVICE_API = `${BASE_API}/items`;
 const PAGE_SIZE = 6;
+const PAGINATION = new Pagination($('.pagination'), PAGE_SIZE, 0, loadAllOrders);
 
+let orders: Array<OrderTM> = [];
 let customers: Array<Customer> = [];
 let items: Array<Item> = [];
 let totalOrders = 0;
@@ -22,57 +27,37 @@ $(window).ready(()=>{
 });
 
 function generateOrderId():void{
-    const http = new XMLHttpRequest();
-
-    http.onreadystatechange = () => {
-
-        if (http.readyState === http.DONE) {
-
-            if (http.status !== 200) {
-                alert("Failed to fetch orderId");
-                return;
-            }
-            
-            newOrderId = http.getResponseHeader('X-Total-Count').split('/')[1];
-            $('#order-id h1').text(newOrderId);
-        }
-    }
-
-    http.open('GET', ORDERS_SERVICE_API+'?page=1&size=1', true);
-
-    http.send();
+    
+    fetch(ORDERS_SERVICE_API +'?' + new URLSearchParams({page: PAGINATION.selectedPage + '', size: PAGE_SIZE + ''})).then((resp)=>{
+        if(resp.status !== 200) throw new Error("Failed to fetch Order Id");
+        
+        newOrderId = resp.headers.get('X-Total-Count').split('/')[1];
+        $('#order-id h1').text(newOrderId);
+    }).catch((err)=>{
+        alert("Failed to fetch orderId");
+        console.error(err);
+        
+    });
 }
 
 function loadAllCustomers():void{
-    const http = new XMLHttpRequest();
+    fetch(CUSTOMER_SERVICE_API).then((resp)=>{
+        return resp.json()
+    }).then((data)=>{
+        customers = data;
 
-    http.onreadystatechange = () => {
+        $('#cmb-customer-ids option').remove();
 
-        if (http.readyState === http.DONE) {
-
-            if (http.status !== 200) {
-                alert("Failed to fetch customers, try again...!");
-                return;
-            }
-            customers = JSON.parse(http.responseText);
-
-            $('#cmb-customer-ids option').remove();
-
-            customers.forEach((c) => {
-                const rowHtml = `<option>${c.id}</option>` ;
+        customers.forEach((c) => {
+            const rowHtml = `<option>${c.id}</option>` ;
 
 
-                $('#cmb-customer-ids').append(rowHtml);
-            });
-        }
-    }
-
-        // http://url?page=10&size=10
-    http.open('GET', CUSTOMER_SERVICE_API, true);
-
-    // 4. Setting headers, etc.
-
-    http.send();
+            $('#cmb-customer-ids').append(rowHtml);
+        });
+    }).catch((err)=>{
+        alert("Failed to fetch customers, try again...!");
+        console.error(err);
+    });
 }
 
 $('#cmb-customer-ids').on('change',function(){
@@ -85,35 +70,23 @@ $('#cmb-customer-ids').on('change',function(){
 });
 
 function loadAllItems():void{
-    const http = new XMLHttpRequest();
+    fetch(ITEM_SERVICE_API).then((resp)=>{
+        return resp.json()
+    }).then((data)=>{
+        items = data;
 
-    http.onreadystatechange = () => {
+        $('#cmb-item-codes option').remove();
 
-        if (http.readyState === http.DONE) {
-
-            if (http.status !== 200) {
-                alert("Failed to fetch items, try again...!");
-                return;
-            }
-            items = JSON.parse(http.responseText);
-
-            $('#cmb-item-codes option').remove();
-
-            items.forEach((c) => {
-                const rowHtml = `<option>${c.code}</option>` ;
+        items.forEach((c) => {
+            const rowHtml = `<option>${c.code}</option>` ;
 
 
-                $('#cmb-item-codes').append(rowHtml);
-            });
-        }
-    }
-
-        // http://url?page=10&size=10
-    http.open('GET', ITEM_SERVICE_API, true);
-
-    // 4. Setting headers, etc.
-
-    http.send();
+            $('#cmb-item-codes').append(rowHtml);
+        });
+    }).catch((err)=>{
+        alert("Failed to fetch items, try again...!");
+        console.error(err);
+    });
 }
 
 $('#cmb-item-codes').on('change',function(){
@@ -130,26 +103,28 @@ $('#cmb-item-codes').on('change',function(){
 function loadAllOrders(): void {
     $('#tbl-orders tbody tr').remove();
 
-  
-    // load the order to the table
-    // console.log(start, end);
-    // //orders.length * selectedPage: start + PAGE_SIZE
+    const start = (PAGINATION.selectedPage == 1) ? 0 : 1 + ((PAGINATION.selectedPage - 1) * PAGE_SIZE);
+    const end = PAGINATION.selectedPage === 1 ? orders.length + start : orders.length === start ? start + 1 :(orders.length - start) + start;
     
-    // for (let index = start; index < end; index++) {
+    console.log(start, end);
+    //orders.length * selectedPage: start + PAGE_SIZE
+    
+    for (let index = start; index < end; index++) {
         
-    //     const rowHtml = `<tr>
-    //      <td>${orders[index].code}</td>
-    //      <td>${orders[index].description}</td>
-    //      <td>${orders[index].qty}</td>
-    //      <td>${orders[index].unitPrice}</td>
-    //      <td>${orders[index].total}</td>
-    //      <td><i class="fas fa-trash trash"></i></td>
-    //      </tr>` ;
+        const rowHtml = `<tr>
+         <td>${orders[index].code}</td>
+         <td>${orders[index].description}</td>
+         <td>${orders[index].qty}</td>
+         <td>${orders[index].unitPrice}</td>
+         <td>${orders[index].total}</td>
+         <td><i class="fas fa-trash trash"></i></td>
+         </tr>` ;
 
 
-    //     $('#tbl-orders tbody').append(rowHtml);
+        $('#tbl-orders tbody').append(rowHtml);
         
-    // }
+    }
+    PAGINATION.reInitialize(totalOrders,PAGINATION.selectedPage);
 }
 
 $('#btn-save').on('click', (eventData) => {
@@ -161,7 +136,6 @@ $('#btn-save').on('click', (eventData) => {
     const txtQty = $('#txt-qty');
     const txtQtyHand = $('#txt-qty-hand');
 
-
     let code = (cmbCode.val() as string).trim();
     let description = (txtDesc.val() as string).trim();
     let price = (txtPrice.val() as string).trim();
@@ -169,10 +143,11 @@ $('#btn-save').on('click', (eventData) => {
     let qtyHand = (txtQtyHand.val() as string).trim();
 
     let validated = true;
-    $('#txt-code').removeClass('is-invalid');
+    $('#txt-qty').removeClass('is-invalid');
 
-/* TODO: exists order table update, count qty with table */
+
     if (!/^\d+$/.test(qty) || qtyHand < qty) {
+        
         txtQty.addClass('is-invalid');
         txtQty.trigger('select');
         validated = false;
@@ -188,8 +163,9 @@ $('#btn-save').on('click', (eventData) => {
         return;
     }
 
+    saveOrder(new OrderTM(code, description, +qty, +price, (+qty*+price)));
 
-    let total =0;
+    let total =0; /* TODO: exists order table update, count qty with table */
     for (const order of orders) {
         total +=order.total;
     }
@@ -197,26 +173,26 @@ $('#btn-save').on('click', (eventData) => {
     $('#order-total').text(total);
 });
 
-// function saveOrder(order: OrderTM): void {
-//     totalOrders++;
-//     PAGINATION.pageCount = Math.ceil(totalOrders / PAGE_SIZE);
+function saveOrder(order: OrderTM): void {
+    totalOrders++;
+    PAGINATION.pageCount = Math.ceil(totalOrders / PAGE_SIZE);
 
-//     orders.push(order);
-//     $('#cmb-item-codes, #txt-item-desc, #txt-price, #txt-qty-hand, #txt-qty').val('');
-//     $('#cmb-item-codes').trigger('focus');
-// }
+    orders.push(order);
+    PAGINATION.navigateToPage(PAGINATION.pageCount);
+    $('#cmb-item-codes, #txt-item-desc, #txt-price, #txt-qty-hand, #txt-qty').val('');
+    $('#cmb-item-codes').trigger('focus');
+}
 
 let date = new Date();
 let dd = String(date.getDate()).padStart(2, '0');
 let mm = String(date.getMonth() + 1).padStart(2, '0');;
 let yyyy = date.getFullYear();
 
-
 const today = yyyy + '-' + mm + '-' + dd;
+
 $('#btn-place').on('click',()=>{
     const orderId = $('#order-id h1').text();
     const cusId = $('#cmb-customer-ids').val();
-    console.log(customers);
     
     let orderDetails:Array<OrderDetails>=[];
     for (const order of orders) {
@@ -230,29 +206,22 @@ $('#btn-place').on('click',()=>{
 });
 
 function placeOrder(order:Order):void{
-    console.log(JSON.stringify(order));
-    
-    const http = new XMLHttpRequest();
-
-    http.onreadystatechange = ()=>{
-
-        if(http.readyState !== http.DONE) return;
-
-            if(http.status !== 201){
-                alert('Failed saved');
-                return;
-            }
-
+    fetch(ORDERS_SERVICE_API,{
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(order)
+    }).then(()=>{
         alert("Order Placed");
         loadAllItems();
         generateOrderId();
 
-    }
-
-    http.open('POST', ORDERS_SERVICE_API, true);
-    http.setRequestHeader('Content-Type','application/json');
-
-    http.send(JSON.stringify(order));
+    }).catch((err)=>{
+        alert('Failed placing');
+        console.error(err);
+        
+    })
 }
 
 $('#tbl-orders tbody').on('click', 'tr', function () {
@@ -293,9 +262,12 @@ function deleteOrder(code: string): void {
             orders.splice(index,1);
         }
     }
+    console.log(orders);
     
     totalOrders--;
+    PAGINATION.pageCount = Math.ceil(totalOrders / PAGE_SIZE);
                 
+    PAGINATION.navigateToPage(PAGINATION.pageCount);
 
 }
 
@@ -303,6 +275,3 @@ $('#btn-clear').on('click', () => {
     $("#tbl-items tbody tr.selected").removeClass('selected');
     $("#txt-code").removeAttr('disabled').trigger('focus');
 });
-
-
-//we gt an error in the place-order
