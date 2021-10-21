@@ -13,47 +13,34 @@ loadAllItems();
 
 function loadAllItems(): void {
 
-    const http = new XMLHttpRequest();
+    fetch(ITEMS_SERVICE_API + "?" + new URLSearchParams({page: PAGINATION.selectedPage + "", size: PAGE_SIZE+ ""})).then((resp)=>{
+        if(resp.status !== 200) throw new Error("Failed to load items, try again");
 
-    http.onreadystatechange = () => {
+        totalItems = +resp.headers.get('X-Total-Count');
+        return resp.json();
+    }).then((data)=>{
+        items = data;
+        $('#tbl-items tbody tr').remove();
 
-        if (http.readyState === http.DONE) {
-
-            if (http.status !== 200) {
-                alert("Failed to fetch items, try again...!");
-                return;
-            }
-
-            totalItems = +(http.getResponseHeader('X-Total-Count'));
-            items = JSON.parse(http.responseText);
-
-            $('#tbl-items tbody tr').remove();
-
-            items.forEach((c) => {
-                const rowHtml = `<tr>
-                 <td>${c.code}</td>
-                 <td>${c.description}</td>
-                 <td>${c.qtyOnHand}</td>
-                 <td>${c.unitPrice}</td>
-                 <td><i class="fas fa-trash trash"></i></td>
-                 </tr>` ;
+        items.forEach((c) => {
+            const rowHtml = `<tr>
+            <td>${c.code}</td>
+            <td>${c.description}</td>
+            <td>${c.qtyOnHand}</td>
+            <td>${c.unitPrice}</td>
+            <td><i class="fas fa-trash trash"></i></td>
+            </tr>` ;
 
 
-                $('#tbl-items tbody').append(rowHtml);
-            });
+            $('#tbl-items tbody').append(rowHtml);
+        });
 
-         
-        }
-
-    };
-
-    // http://url?page=10&size=10
-    http.open('GET', ITEMS_SERVICE_API);
-
-    // 4. Setting headers, etc.
-
-    http.send();
-
+   
+    }).catch((err)=>{
+        alert(err.message);
+        console.log(err);
+        
+    });
 }
 
 $('#btn-save').on('click', (eventData) => {
@@ -101,7 +88,6 @@ $('#btn-save').on('click', (eventData) => {
 
     if (txtCode.attr('disabled')) {
 
-        const selectedRow = $("#tbl-items tbody tr.selected");
         updateItem(new Item(code, description, +price, +qty));
         return;
     }
@@ -110,16 +96,14 @@ $('#btn-save').on('click', (eventData) => {
 });
 
 function updateItem(item: Item): void {
-    const http = new XMLHttpRequest();
-
-    http.onreadystatechange = () => {
-
-        if (http.readyState !== http.DONE) return;
-
-        if (http.status !== 204) {
-            alert("Failed to update the item, retry");
-            return;
-        }
+    fetch(ITEMS_SERVICE_API,{
+        method: 'PUT',
+        headers:{
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(item)
+    }).then((resp)=>{
+        if(resp.status !== 204) throw new Error("Failed to update the item, try again");
 
         alert("item has been updated successfully");
         $("#tbl-items tbody tr.selected").find("td:nth-child(2)").text($("#txt-description").val() as string);
@@ -129,42 +113,35 @@ function updateItem(item: Item): void {
         $('#txt-code').trigger('focus');
         $("#tbl-items tbody tr.selected").removeClass('selected');
         $('#txt-code').removeAttr('disabled');
-
-    };
-
-    http.open('PUT', ITEMS_SERVICE_API, true);
-
-    http.setRequestHeader('Content-Type', 'application/json');
-
-    http.send(JSON.stringify(item));
+    }).catch((err)=>{
+        alert(err.message);
+        console.error(err);
+    });
 
 }
 
 function saveItem(item: Item): void {
-    const http = new XMLHttpRequest();
-
-    http.onreadystatechange = () => {
-
-        if (http.readyState !== http.DONE) return;
-
-        if (http.status !== 201) {
-            console.error(http.responseText);
-            alert("Failed to save the item, retry");
-            return;
-        }
+    fetch(ITEMS_SERVICE_API,{
+        method: 'POST',
+        headers:{
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(item)
+    }).then((resp)=>{
+        if(resp.status !== 201) throw new Error("Failed to save item, try again");
 
         alert("Customer has been saved successfully");
+
+        totalItems++;
 
         
         $('#txt-code, #txt-description, #txt-price, #txt-qty').val('');
         $('#txt-code').trigger('focus');
-    };
-
-    http.open('POST', ITEMS_SERVICE_API, true);
-
-    http.setRequestHeader('Content-Type', 'application/json');
-
-    http.send(JSON.stringify(item));
+        $('#txt-id').removeAttr('disabled');
+    }).catch((err)=>{
+        alert(err.message);
+        console.error(err);
+    });
 }
 
 $('#tbl-items tbody').on('click', 'tr', function () {
@@ -191,27 +168,18 @@ $('#tbl-items tbody').on('click', '.trash', function (eventData) {
 });
 
 function deleteItem(code: string): void {
-    const http = new XMLHttpRequest();
-
-    http.onreadystatechange = () => {
-
-        if (http.readyState === http.DONE) {
-
-            if (http.status !== 204) {
-                alert("Failed to delete item, try again...!");
-                return;
-            }
-
-            totalItems--;
-            
-
-        }
-
-    };
-
-    http.open('DELETE', ITEMS_SERVICE_API + `?code=${code}`, true);
-
-    http.send();
+    fetch(ITEMS_SERVICE_API +`?${new URLSearchParams({code: code})}`,{
+        method: 'DELETE'
+    }).then((resp)=>{
+        if(resp.status !== 204) throw new Error("Failed to delete the item, try again");
+        
+        totalItems--;
+        
+        $('#btn-clear').trigger('click');
+    }).catch((err)=>{
+        alert(err.message);
+        console.error(err);
+    });
 }
 
 $('#btn-clear').on('click', () => {
