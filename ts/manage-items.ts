@@ -1,9 +1,12 @@
+import axios from 'axios';
 import $ from 'jquery';
 import { Item } from "./dto/item";
+import { Pagination } from './dto/pagination';
 
 const BASE_API = 'http://localhost:8080/pos';
 const ITEMS_SERVICE_API = `${BASE_API}/items`;
 const PAGE_SIZE = 6;
+const PAGINATION = new Pagination($('.pagination'), PAGE_SIZE, 0, loadAllItems);
 
 
 let items: Array<Item> = [];
@@ -12,14 +15,16 @@ let totalItems = 0;
 loadAllItems();
 
 function loadAllItems(): void {
-
-    fetch(ITEMS_SERVICE_API + "?" + new URLSearchParams({page: PAGINATION.selectedPage + "", size: PAGE_SIZE+ ""})).then((resp)=>{
-        if(resp.status !== 200) throw new Error("Failed to load items, try again");
-
-        totalItems = +resp.headers.get('X-Total-Count');
-        return resp.json();
-    }).then((data)=>{
-        items = data;
+    axios.get(ITEMS_SERVICE_API,{
+        params: {
+            page: PAGINATION.selectedPage,
+            size: PAGE_SIZE
+        }
+    }).then((resp)=>{
+        items = resp.data;
+        
+        totalItems = +resp.headers['x-total-count'];
+        
         $('#tbl-items tbody tr').remove();
 
         items.forEach((c) => {
@@ -35,11 +40,10 @@ function loadAllItems(): void {
             $('#tbl-items tbody').append(rowHtml);
         });
 
-   
+        PAGINATION.reInitialize(totalItems, PAGINATION.selectedPage);
     }).catch((err)=>{
-        alert(err.message);
+        alert("Failed to fetch items, try again...!");
         console.log(err);
-        
     });
 }
 
@@ -57,7 +61,7 @@ $('#btn-save').on('click', (eventData) => {
     let qty = (txtQty.val() as string).trim();
 
     let validated = true;
-    $('#txt-id, #txt-name, #txt-address').removeClass('is-invalid');
+    $('#txt-code, #txt-description, #txt-price, #txt-qty').removeClass('is-invalid');
 
 
     if (!/^\d+$/.test(qty)) {
@@ -96,15 +100,12 @@ $('#btn-save').on('click', (eventData) => {
 });
 
 function updateItem(item: Item): void {
-    fetch(ITEMS_SERVICE_API,{
+    axios({
         method: 'PUT',
-        headers:{
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(item)
-    }).then((resp)=>{
-        if(resp.status !== 204) throw new Error("Failed to update the item, try again");
-
+        url: ITEMS_SERVICE_API,
+        headers: {'content-type': 'application/json'},
+        data: item
+    }).then(()=>{
         alert("item has been updated successfully");
         $("#tbl-items tbody tr.selected").find("td:nth-child(2)").text($("#txt-description").val() as string);
         $("#tbl-items tbody tr.selected").find("td:nth-child(3)").text($("#txt-qty").val() as string);
@@ -115,32 +116,28 @@ function updateItem(item: Item): void {
         $('#txt-code').removeAttr('disabled');
     }).catch((err)=>{
         alert(err.message);
-        console.error(err);
+        console.log(err);
     });
-
 }
 
 function saveItem(item: Item): void {
-    fetch(ITEMS_SERVICE_API,{
+    axios({
         method: 'POST',
-        headers:{
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(item)
-    }).then((resp)=>{
-        if(resp.status !== 201) throw new Error("Failed to save item, try again");
-
-        alert("Customer has been saved successfully");
-
+        url: ITEMS_SERVICE_API,
+        headers: {'content-type': 'application/json'},
+        data: item
+    }).then(()=>{
+        alert('Item saved successful');
         totalItems++;
 
-        
+        PAGINATION.pageCount = Math.ceil(totalItems / PAGE_SIZE);
+        PAGINATION.navigateToPage(PAGINATION.pageCount);
         $('#txt-code, #txt-description, #txt-price, #txt-qty').val('');
         $('#txt-code').trigger('focus');
         $('#txt-id').removeAttr('disabled');
     }).catch((err)=>{
         alert(err.message);
-        console.error(err);
+        console.log(err);
     });
 }
 
@@ -168,13 +165,15 @@ $('#tbl-items tbody').on('click', '.trash', function (eventData) {
 });
 
 function deleteItem(code: string): void {
-    fetch(ITEMS_SERVICE_API +`?${new URLSearchParams({code: code})}`,{
-        method: 'DELETE'
-    }).then((resp)=>{
-        if(resp.status !== 204) throw new Error("Failed to delete the item, try again");
-        
+    axios.delete(ITEMS_SERVICE_API,{
+        params: {
+            code: code
+        }
+    }).then(()=>{
         totalItems--;
-        
+        PAGINATION.pageCount = Math.ceil(totalItems / PAGE_SIZE);            
+        PAGINATION.navigateToPage(PAGINATION.pageCount);
+
         $('#btn-clear').trigger('click');
     }).catch((err)=>{
         alert(err.message);
