@@ -1,4 +1,4 @@
-# Web App Front End using adminLTE and Fetch
+# Web App Front End using adminLTE and Axios
 
 ## Version
 1.0.0
@@ -9,7 +9,7 @@ Copyright © Chandima Herath. All Rights Reserved. License under the [MIT](LICEN
 -----
 ## About
 
-This is a front-end for a web app which is developed using HTML CSS and mainly adminLTE and Boostrap.The API connectivity gained using Fetch. This lets the user to deal with basic crud operations of a point of sales system. Redesigning and distribution is allowed.
+This is a front-end for a web app which is developed using HTML CSS and mainly adminLTE and Boostrap.The API connectivity gained using Axios. This lets the user to deal with basic crud operations of a point of sales system. Redesigning and distribution is allowed.
 
 ----
 ## How to Use
