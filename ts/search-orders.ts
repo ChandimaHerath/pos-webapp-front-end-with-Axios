@@ -1,4 +1,7 @@
+import $ from 'jquery'
 import { Order } from "./dto/search-order";
+import { Pagination } from "./dto/pagination";
+import axios from 'axios';
 
 const BASE_API = 'http://localhost:8080/pos';
 const ORDERS_SERVICE_API = `${BASE_API}/orders`;
@@ -17,18 +20,19 @@ $("#txt-search").on('input',()=>{
 });
 
 function searchOrders():void{
-    
-    fetch(ORDERS_SERVICE_API + `?${new URLSearchParams({page:PAGINATION.selectedPage + '', size: PAGE_SIZE + '', q: $('#txt-search').val() + ''})}`)
-    .then((resp)=>{
-        const count = +resp.headers.get('X-Total-Count');
-        if(resp.status !== 200) throw new Error("Something went wrong, please try again");
+    axios.get(ORDERS_SERVICE_API,{
+        params: {
+            page: PAGINATION.selectedPage,
+            size: PAGE_SIZE,
+            q: $('#txt-search').val()
+        }
+    }).then((resp)=>{
+        const count = +resp.headers['x-total-count'].split('/')[0]
         PAGINATION.reInitialize(count,PAGINATION.selectedPage,PAGE_SIZE);
-        
-        return resp.json();
-    }).then((data)=>{
+
         $('#tbl-orders tbody tr').remove();
         
-        const orders: Array<Order> = data;
+        const orders: Array<Order> = resp.data;
         orders.forEach((o)=>{
             const rowHtml = `<tr>
             <td>${o.orderId}</td>
@@ -43,6 +47,5 @@ function searchOrders():void{
     }).catch((err)=>{
         alert(err.message);
         console.error(err);
-        
     });
 }
