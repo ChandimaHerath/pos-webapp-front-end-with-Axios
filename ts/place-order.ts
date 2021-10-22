@@ -1,7 +1,10 @@
 import $ from 'jquery';
+import { OrderTM } from "./tm/orderTM";
 import { Customer } from "./dto/customer";
 import { Item } from "./dto/item";
 import { Order, OrderDetails } from "./dto/order";
+import { Pagination } from './dto/pagination';
+import axios from 'axios';
 
 const BASE_API = 'http://localhost:8080/pos';
 const ORDERS_SERVICE_API = `${BASE_API}/orders`;
@@ -10,7 +13,7 @@ const ITEM_SERVICE_API = `${BASE_API}/items`;
 const PAGE_SIZE = 6;
 const PAGINATION = new Pagination($('.pagination'), PAGE_SIZE, 0, loadAllOrders);
 
-let orders: Array<OrderM> = [];
+let orders: Array<OrderTM> = [];
 let customers: Array<Customer> = [];
 let items: Array<Item> = [];
 let totalOrders = 0;
@@ -25,24 +28,23 @@ $(window).ready(()=>{
 });
 
 function generateOrderId():void{
-    
-    fetch(ORDERS_SERVICE_API +'?' + new URLSearchParams({page: PAGINATION.selectedPage + '', size: PAGE_SIZE + ''})).then((resp)=>{
-        if(resp.status !== 200) throw new Error("Failed to fetch Order Id");
-        
-        newOrderId = resp.headers.get('X-Total-Count').split('/')[1];
+    axios.get(ORDERS_SERVICE_API,{
+        params: {
+            page: PAGINATION.selectedPage,
+            size: PAGE_SIZE
+        }
+    }).then((resp)=>{
+        newOrderId = resp.headers['x-total-count'].split('/')[1];
         $('#order-id h1').text(newOrderId);
     }).catch((err)=>{
         alert("Failed to fetch orderId");
         console.error(err);
-        
     });
 }
 
 function loadAllCustomers():void{
-    fetch(CUSTOMER_SERVICE_API).then((resp)=>{
-        return resp.json()
-    }).then((data)=>{
-        customers = data;
+    axios.get(CUSTOMER_SERVICE_API).then((resp)=>{
+        customers = resp.data;
 
         $('#cmb-customer-ids option').remove();
 
@@ -68,10 +70,8 @@ $('#cmb-customer-ids').on('change',function(){
 });
 
 function loadAllItems():void{
-    fetch(ITEM_SERVICE_API).then((resp)=>{
-        return resp.json()
-    }).then((data)=>{
-        items = data;
+    axios.get(ITEM_SERVICE_API).then((resp)=>{
+        items = resp.data;
 
         $('#cmb-item-codes option').remove();
 
@@ -161,6 +161,7 @@ $('#btn-save').on('click', (eventData) => {
         return;
     }
 
+    saveOrder(new OrderTM(code, description, +qty, +price, (+qty*+price)));
 
     let total =0; /* TODO: exists order table update, count qty with table */
     for (const order of orders) {
@@ -170,7 +171,7 @@ $('#btn-save').on('click', (eventData) => {
     $('#order-total').text(total);
 });
 
-function saveOrder(order: Order): void {
+function saveOrder(order: OrderTM): void {
     totalOrders++;
     PAGINATION.pageCount = Math.ceil(totalOrders / PAGE_SIZE);
 
@@ -203,22 +204,22 @@ $('#btn-place').on('click',()=>{
 });
 
 function placeOrder(order:Order):void{
-    fetch(ORDERS_SERVICE_API,{
+
+    axios({
         method: 'POST',
+        url: ORDERS_SERVICE_API,
         headers: {
-            'Content-Type': 'application/json'
+            'content-type': 'application/json'
         },
-        body: JSON.stringify(order)
+        data: order
     }).then(()=>{
         alert("Order Placed");
         loadAllItems();
         generateOrderId();
-
     }).catch((err)=>{
         alert('Failed placing');
         console.error(err);
-        
-    })
+    });
 }
 
 $('#tbl-orders tbody').on('click', 'tr', function () {
