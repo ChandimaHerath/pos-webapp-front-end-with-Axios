@@ -1,5 +1,7 @@
 import { Customer } from "./dto/customer";
 import $ from 'jquery';
+import { Pagination } from "./dto/pagination";
+import axios from "axios";
 
 // const BASE_API = 'https://bc677221-4831-4411-b038-9e174414f8ff.mock.pstmn.io';
 const BASE_API = 'http://localhost:8080/pos';
@@ -85,13 +87,17 @@ $('#btn-clear').on('click', () => {
 });
 
 function loadAllCustomers(): void {
-    fetch(CUSTOMERS_SERVICE_API + "?" + new URLSearchParams({page: PAGINATION.selectedPage + "", size: PAGE_SIZE+ ""})).then((resp)=>{
-        if(resp.status !== 200) throw new Error("Failed to load customers, try again");
 
-        totalCustomers = +resp.headers.get('X-Total-Count');
-        return resp.json();
-    }).then((data)=>{
-        customers = data;
+    axios.get(CUSTOMERS_SERVICE_API,{
+        params: {
+            page: PAGINATION.selectedPage,
+            size: PAGE_SIZE
+        }
+    }).then((resp)=>{
+        customers = resp.data;
+        
+        totalCustomers = +resp.headers['x-total-count'];
+        
 
         $('#tbl-customers tbody tr').remove();
 
@@ -104,28 +110,23 @@ function loadAllCustomers(): void {
                 </tr>` ;
 
 
-            $('#tbl-customers tbody').append(rowHtml);
+        $('#tbl-customers tbody').append(rowHtml);
         });
 
-        PAGINATION.reInitialize(totalCustomers, PAGINATION.selectedPage);
+        PAGINATION.reInitialize(totalCustomers,PAGINATION.selectedPage);
     }).catch((err)=>{
-        alert(err.message);
+        alert("Failed to fetch customers, try again...!");
         console.log(err);
-        
     });
 }
 
 function updateCustomer(customer: Customer): void {
-
-    fetch(CUSTOMERS_SERVICE_API,{
+    axios({
         method: 'PUT',
-        headers:{
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(customer)
-    }).then((resp)=>{
-        if(resp.status !== 204) throw new Error("Failed to update the customer, try again");
-
+        url: CUSTOMERS_SERVICE_API,
+        headers: {'content-type': 'application/json'},
+        data: customer
+    }).then(()=>{
         alert("Customer has been updated successfully");
         $("#tbl-customers tbody tr.selected").find("td:nth-child(2)").text($("#txt-name").val() as string);
         $("#tbl-customers tbody tr.selected").find("td:nth-child(3)").text($("#txt-address").val() as string);
@@ -135,21 +136,17 @@ function updateCustomer(customer: Customer): void {
         $('#txt-id').removeAttr('disabled');
     }).catch((err)=>{
         alert(err.message);
-        console.error(err);
+        console.log(err);
     });
-    
 }
 
-function saveCustomer(customer: Customer): void {
-    fetch(CUSTOMERS_SERVICE_API,{
+function saveCustomer(customer: Customer): void {    
+    axios({
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(customer)
-    }).then((resp)=>{
-        if(resp.status !== 201) throw new Error("Failed to save customer, try again");
-
+        url: CUSTOMERS_SERVICE_API,
+        headers: {'content-type': 'application/json'},
+        data: customer
+    }).then(()=>{
         alert('Customer saved successful');
         totalCustomers++;
 
@@ -166,13 +163,14 @@ function saveCustomer(customer: Customer): void {
 
 function deleteCustomer(id: string): void {
 
-    fetch(CUSTOMERS_SERVICE_API +`?${new URLSearchParams({id: id})}`,{
-        method: 'DELETE'
-    }).then((resp)=>{
-        if(resp.status !== 204) throw new Error("Failed to delete the customer, try again");
-        
+    axios.delete(CUSTOMERS_SERVICE_API,{
+        params: {
+            id: id
+        }
+    }).then(()=>{
         totalCustomers--;
-      
+        PAGINATION.pageCount = Math.ceil(totalCustomers / PAGE_SIZE);            
+        PAGINATION.navigateToPage(PAGINATION.pageCount);
 
         $('#btn-clear').trigger('click');
     }).catch((err)=>{
